@@ -5,13 +5,13 @@
 #include <cstring>
 #include <unistd.h>
 
-__AFL_FUZZ_INIT(); 
+__AFL_FUZZ_INIT();
 
 // Global Tesseract instance to avoid reinitialization
 static tesseract::TessBaseAPI *api = nullptr;
 
 int main(int argc, char **argv) {
-    // init once
+    // Init once
     api = new tesseract::TessBaseAPI();
     if (api->Init(nullptr, "eng")) {
         fprintf(stderr, "Failed to initialize Tesseract\n");
@@ -32,34 +32,51 @@ int main(int argc, char **argv) {
         if (!image) continue;  // Skip invalid images
 
         // Process the image with Tesseract
-        Pixa** pixa;
-        int** blockids;
-        int** paraids;
-        // Process the image
         api->SetImage(image);
-        api->SetRectangle(0, 0, image->w, image->h); // Set the whole image as the rectangle
-        api->GetRegions(pixa);
-        api->GetTextlines(true, 0, pixa, blockids, paraids);
-        api->GetStrips(pixa, blockids);
-        api->GetWords(pixa);
-        api->GetConnectedComponents(pixa);
-        api->AnalyseLayout();
-    
-        api->Recognize(NULL); // Recognize the image
-    
-        // TessResultRenderer *renderer = TessTextRendererCreate("output");
-        // api->ProcessPage(image, 0, input_file, NULL, 0, renderer); 
-        api->GetIterator(); // Get the iterator for the recognized text
-        char *text = api->GetUTF8Text();
-        if (text) delete[] text;
+        api->SetRectangle(0, 0, pixGetWidth(image), pixGetHeight(image)); 
 
-        // Cleanup
+        // init pointers so there isn't a segfault
+        Pixa* regions = NULL;
+        Pixa* textlines = NULL;
+        Pixa* words = NULL;
+        Pixa* components = NULL;
+        int* blockids = NULL;
+        int* paraids = NULL;
+
+        // Safely call layout analysis functions
+        api->AnalyseLayout();
+        
+        // Perform OCR
+        api->Recognize(NULL);
+        
+        // Get orientation information
+        int orientation = 0;
+        float orientation_conf = 0;
+        const char* script_name = nullptr;
+        float script_conf = 0;
+        api->DetectOrientationScript(&orientation, &orientation_conf, &script_name, &script_conf);
+        
+        // Get mean confidence
+        api->MeanTextConf();
+        
+        // Get the iterator
+        api->GetIterator();
+        
+        // Get text
+        api->GetUTF8Text();
+        api->AllWordConfidences();
+        
+
+        // Cleanup for this iteration
         pixDestroy(&image);
+        
+        // Reset the API for the next iteration
+        api->Clear();
     }
 
     // Cleanup Tesseract after fuzzing is complete
     api->End();
     delete api;
-
+    
     return 0;
 }
