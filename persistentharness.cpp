@@ -36,13 +36,18 @@ int main(int argc, char **argv) {
         api->SetRectangle(0, 0, pixGetWidth(image), pixGetHeight(image)); 
 
         // init pointers so there isn't a segfault
-        Pixa* regions = NULL;
-        Pixa* textlines = NULL;
-        Pixa* words = NULL;
-        Pixa* components = NULL;
-        int* blockids = NULL;
-        int* paraids = NULL;
-
+        Pixa** regions = NULL;
+        Pixa** textlines = NULL;
+        Pixa** words = NULL;
+        Pixa** components = NULL;
+        int** blockids = NULL;
+        int** paraids = NULL;
+        // Call verious functions
+        api->GetRegions(regions);
+        api->GetTextlines(true, 0, textlines, blockids, paraids);
+        api->GetStrips(regions, blockids);
+        api->GetWords(words);
+        api->GetConnectedComponents(regions);
         // Safely call layout analysis functions
         api->AnalyseLayout();
         
@@ -56,13 +61,9 @@ int main(int argc, char **argv) {
         float script_conf = 0;
         api->DetectOrientationScript(&orientation, &orientation_conf, &script_name, &script_conf);
         
-        // Get mean confidence
+        // make more calls
         api->MeanTextConf();
-        
-        // Get the iterator
         api->GetIterator();
-        
-        // Get text
         api->GetUTF8Text();
         api->AllWordConfidences();
         
